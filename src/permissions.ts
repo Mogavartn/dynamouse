@@ -1,32 +1,27 @@
-import { askForAccessibilityAccess, askForInputMonitoringAccess, AuthType, getAuthStatus } from 'node-mac-permissions';
-import { dialog } from 'electron';
+import { askForAccessibilityAccess, askForInputMonitoringAccess } from 'node-mac-permissions';
 
-const waitForPermission = (perm: AuthType) => {
-  let interval;
+export const waitForAllPermissions = async (): Promise<void> => {
   return new Promise((resolve) => {
-    interval = setInterval(() => {
-      if (getAuthStatus(perm) === 'authorized') {
-        resolve(null);
+    let interval: NodeJS.Timeout;
+
+    const checkPermissions = async () => {
+      try {
+        const accessibilityAccess = await askForAccessibilityAccess();
+        const inputMonitoringAccess = await askForInputMonitoringAccess();
+        
+        if (accessibilityAccess && inputMonitoringAccess) {
+          if (interval) {
+            clearInterval(interval);
+          }
+          resolve();
+        }
+      } catch (error) {
+        // Continue checking if there's an error
+        console.error('Permission check error:', error);
       }
-    }, 1000);
-  }).then(() => {
-    clearInterval(interval);
+    };
+
+    checkPermissions();
+    interval = setInterval(checkPermissions, 1000);
   });
-};
-
-export const waitForAllPermissions = async () => {
-  if (getAuthStatus('accessibility') !== 'authorized') {
-    await dialog.showMessageBox({
-      type: 'info',
-      title: 'Some permissions needed',
-      message: 'You will be asked for accessibility access, we need this so we can control the mouse position.'
-    });
-    askForAccessibilityAccess();
-    await waitForPermission('accessibility');
-  }
-
-  if (getAuthStatus('input-monitoring') !== 'authorized') {
-    await askForInputMonitoringAccess();
-    await waitForPermission('input-monitoring');
-  }
 };

@@ -4,6 +4,7 @@ import { DisplayEngine } from './DisplayEngine';
 import { PointerEngine } from './PointerEngine';
 import { ConfigEngine } from './ConfigEngine';
 import { RobotEngine } from './RobotEngine';
+import { TouchscreenEngine } from './TouchscreenEngine';
 import AutoLaunch from 'auto-launch';
 import { createLogger, transports } from 'winston';
 import { buildLoadingMenu, buildMenu } from './menu';
@@ -24,6 +25,7 @@ logger.add(new transports.Console({ level: 'debug' }));
 const displayEngine = new DisplayEngine();
 const pointerEngine = new PointerEngine({ logger });
 const configEngine = new ConfigEngine({ logger });
+const touchscreenEngine = new TouchscreenEngine({ logger });
 const robotEngine = new RobotEngine({
   logger,
   displayEngine,
@@ -52,6 +54,7 @@ app.on('ready', async () => {
   const dispose = async () => {
     logger.debug('Disposing app');
     await pointerEngine.dispose();
+    await touchscreenEngine.dispose();
   };
 
   const buildMenuWrapped = () => {
@@ -64,6 +67,7 @@ app.on('ready', async () => {
       displayEngine,
       pointerEngine,
       configEngine,
+      touchscreenEngine,
       autolauncher,
       rebuildMenu: () => {
         buildMenuWrapped();
@@ -74,6 +78,7 @@ app.on('ready', async () => {
   const init = () => {
     pointerEngine.init();
     displayEngine.init();
+    touchscreenEngine.init();
 
     configEngine.registerListener({
       configChanged: ({ devices }) => {
@@ -90,6 +95,22 @@ app.on('ready', async () => {
       devicesChanged: () => {
         buildMenuWrapped();
         setupMovement();
+      }
+    });
+
+    touchscreenEngine.registerListener({
+      deviceAdded: (device) => {
+        logger.info(`Touchscreen device added: ${device.name}`);
+        buildMenuWrapped();
+      },
+      deviceRemoved: (device) => {
+        logger.info(`Touchscreen device removed: ${device.name}`);
+        buildMenuWrapped();
+      },
+      touchDetected: (device, x, y) => {
+        logger.debug(`Touch detected on ${device.name} at (${x}, ${y})`);
+        // Ici on pourrait ajouter une logique pour gérer les événements tactiles
+        // Par exemple, activer automatiquement un périphérique de pointage associé
       }
     });
 

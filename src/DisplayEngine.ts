@@ -8,9 +8,19 @@ export interface DisplayListener {
 
 export class DisplayEngine extends BaseObserver<DisplayListener> {
   displays: Display[];
+  private currentListener: Partial<DisplayListener> | null = null;
+
   constructor() {
     super();
     this.displays = [];
+  }
+
+  protected getListener(): Partial<DisplayListener> | null {
+    return this.currentListener;
+  }
+
+  protected setListener(listener: Partial<DisplayListener>): void {
+    this.currentListener = listener;
   }
 
   recompute() {

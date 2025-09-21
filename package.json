@@ -3,7 +3,7 @@
   "license": "MIT",
   "main": "dist/main.js",
   "description": "Mouse and Display assignment for mac",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "author": {
     "name": "Dylan Vorster",
     "url": "dylanvorster.com"
@@ -29,11 +29,21 @@
     "appId": "projectstorm.dynamouse",
     "mac": {
       "icon": "./media/icon.png",
-      "category": "public.app-category.utilities"
+      "category": "public.app-category.utilities",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        }
+      ],
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist"
     }
   },
   "dependencies": {
-    "@jitsi/robotjs": "^0.6.13",
+    "@jitsi/robotjs": "^0.6.15",
     "auto-launch": "^5.0.6",
     "async": "^3.2.5",
     "electron-json-storage": "^4.6.0",
@@ -50,12 +60,12 @@
     "@types/auto-launch": "^5.0.5",
     "@types/electron-json-storage": "^4.5.4",
     "@types/lodash": "^4.14.202",
-    "@types/node": "^20.11.20",
+    "@types/node": "^22.10.2",
     "@types/uuid": "^9.0.8",
-    "electron": "^29.0.1",
-    "electron-builder": "^24.12.0",
-    "prettier": "^3.2.5",
-    "typescript": "^5.3.3",
-    "husky": "^9.0.11"
+    "electron": "^32.0.0",
+    "electron-builder": "^25.1.8",
+    "prettier": "^3.3.3",
+    "typescript": "^5.6.3",
+    "husky": "^9.1.7"
   }
 }
