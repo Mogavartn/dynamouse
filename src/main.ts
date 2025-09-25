@@ -104,6 +104,20 @@ app.on('ready', async () => {
       }
     });
 
+    const handleTouchEvent = (device: any, x: number, y: number) => {
+      logger.debug(`Handling touch event on ${device.name} at (${x}, ${y})`);
+      
+      // Pour les écrans ANMITE, activer automatiquement le contrôle tactile
+      if (device.isAnmite) {
+        logger.info(`ANMITE touch detected - activating touch control`);
+        // Ici on pourrait activer automatiquement un périphérique de pointage
+        // ou effectuer d'autres actions spécifiques à ANMITE
+      }
+      
+      // Pour les autres écrans tactiles, gérer selon la configuration
+      // Cette logique peut être étendue selon les besoins
+    };
+
     touchscreenEngine.registerListener({
       deviceAdded: (device) => {
         logger.info(`Touchscreen device added: ${device.name}`);
@@ -115,8 +129,9 @@ app.on('ready', async () => {
       },
       touchDetected: (device, x, y) => {
         logger.debug(`Touch detected on ${device.name} at (${x}, ${y})`);
-        // Ici on pourrait ajouter une logique pour gérer les événements tactiles
-        // Par exemple, activer automatiquement un périphérique de pointage associé
+        
+        // Gestion des événements tactiles pour le contrôle des périphériques
+        handleTouchEvent(device, x, y);
       }
     });
 

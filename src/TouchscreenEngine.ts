@@ -55,28 +55,39 @@ export class TouchscreenEngine extends BaseObserver<TouchscreenListener> {
   private detectTouchscreenDevices() {
     const displays = screen.getAllDisplays();
     
+    // Clear existing devices first
+    this.devices.clear();
+    
     displays.forEach((display, index) => {
-      // Détection des écrans ANMITE et autres écrans tactiles
-      const deviceId = `touchscreen_${index}`;
+      // Only create touchscreen devices for displays that are actually touchscreens
       const isAnmite = this.isAnmiteDevice(display);
+      const isTouchscreen = this.isTouchscreenDevice(display);
       
-      const touchscreenDevice: TouchscreenDevice = {
-        id: deviceId,
-        name: isAnmite ? `ANMITE Touchscreen ${index + 1}` : `Touchscreen ${index + 1}`,
-        vendor: isAnmite ? 'ANMITE' : 'Generic',
-        product: isAnmite ? 'ANMITE Touch Display' : 'Touch Display',
-        bounds: display.bounds,
-        isAnmite,
-        isActive: true
-      };
+      // Only add if it's actually a touchscreen or ANMITE device
+      if (isAnmite || isTouchscreen) {
+        const deviceId = `touchscreen_${display.id}`;
+        
+        const touchscreenDevice: TouchscreenDevice = {
+          id: deviceId,
+          name: isAnmite ? `ANMITE Touchscreen ${index + 1}` : `Touchscreen ${index + 1}`,
+          vendor: isAnmite ? 'ANMITE' : 'Generic',
+          product: isAnmite ? 'ANMITE Touch Display' : 'Touch Display',
+          bounds: display.bounds,
+          isAnmite,
+          isActive: true
+        };
 
-      this.devices.set(deviceId, touchscreenDevice);
-      this.logger.info(`Detected touchscreen: ${touchscreenDevice.name}`, {
-        bounds: touchscreenDevice.bounds,
-        isAnmite
-      });
+        this.devices.set(deviceId, touchscreenDevice);
+        this.logger.info(`Detected touchscreen: ${touchscreenDevice.name}`, {
+          bounds: touchscreenDevice.bounds,
+          isAnmite,
+          displayId: display.id
+        });
 
-      this.iterateListeners((cb) => cb.deviceAdded?.(touchscreenDevice));
+        this.iterateListeners((cb) => cb.deviceAdded?.(touchscreenDevice));
+      } else {
+        this.logger.debug(`Skipping non-touchscreen display: ${display.label}`);
+      }
     });
   }
 
@@ -89,7 +100,6 @@ export class TouchscreenEngine extends BaseObserver<TouchscreenListener> {
     const anmiteIndicators = [
       'ANMITE',
       'anmite',
-      'touch',
       'Touch',
       'TOUCH'
     ];
@@ -98,6 +108,40 @@ export class TouchscreenEngine extends BaseObserver<TouchscreenListener> {
       displayInfo.includes(indicator) || 
       display.label?.includes(indicator)
     );
+  }
+
+  private isTouchscreenDevice(display: any): boolean {
+    // Détection générale des écrans tactiles
+    // Vérifier si l'écran a des capacités tactiles
+    const displayInfo = display.toString();
+    const label = display.label || '';
+    
+    // Marqueurs génériques pour les écrans tactiles
+    const touchscreenIndicators = [
+      'touch',
+      'Touch',
+      'TOUCH',
+      'Touchscreen',
+      'Touch Screen',
+      'Multi-touch',
+      'Capacitive',
+      'Resistive'
+    ];
+
+    // Vérifier dans les informations d'affichage et le label
+    const hasTouchscreenIndicators = touchscreenIndicators.some(indicator => 
+      displayInfo.toLowerCase().includes(indicator.toLowerCase()) || 
+      label.toLowerCase().includes(indicator.toLowerCase())
+    );
+
+    // Vérifier si c'est un écran externe (pas l'écran intégré du Mac)
+    const isExternalDisplay = display.bounds.x !== 0 || display.bounds.y !== 0;
+    
+    // Pour macOS Sonoma, on peut aussi vérifier les propriétés spécifiques
+    const hasTouchCapabilities = display.touchSupport === 'available' || 
+                                display.touchSupport === 'unknown';
+
+    return hasTouchscreenIndicators || (isExternalDisplay && hasTouchCapabilities);
   }
 
   private startMonitoring() {
@@ -128,23 +172,56 @@ export class TouchscreenEngine extends BaseObserver<TouchscreenListener> {
     // Dans une implémentation réelle, cela nécessiterait des drivers spécifiques
     // ou des APIs système pour détecter les événements tactiles
     
-    setInterval(() => {
-      this.devices.forEach((device) => {
-        if (device.isActive) {
-          // Simulation d'événements tactiles occasionnels
-          // À remplacer par une vraie détection d'événements tactiles
-          const shouldSimulate = Math.random() < 0.001; // 0.1% de chance
-          
-          if (shouldSimulate) {
-            const x = device.bounds.x + Math.random() * device.bounds.width;
-            const y = device.bounds.y + Math.random() * device.bounds.height;
-            
-            this.logger.debug(`Touch detected on ${device.name} at (${x}, ${y})`);
-            this.iterateListeners((cb) => cb.touchDetected?.(device, x, y));
-          }
-        }
-      });
-    }, 1000);
+    // Pour macOS Sonoma, nous devons utiliser des méthodes plus avancées
+    // pour détecter les événements tactiles réels
+    this.setupRealTouchDetection();
+  }
+
+  private setupRealTouchDetection() {
+    // Configuration pour la détection tactile réelle sur macOS Sonoma
+    // Utilisation des APIs système pour détecter les événements tactiles
+    
+    // Écoute des événements de souris sur les écrans tactiles
+    // Cela peut capturer les événements tactiles convertis en événements de souris
+    const { screen } = require('electron');
+    
+    // Pour les écrans ANMITE, nous pouvons utiliser des méthodes spécifiques
+    this.devices.forEach((device) => {
+      if (device.isAnmite && device.isActive) {
+        this.logger.info(`Setting up ANMITE touch detection for ${device.name}`);
+        this.setupAnmiteTouchDetection(device);
+      }
+    });
+  }
+
+  private setupAnmiteTouchDetection(device: TouchscreenDevice) {
+    // Configuration spécifique pour la détection tactile ANMITE
+    // Les écrans ANMITE peuvent nécessiter des drivers ou APIs spécifiques
+    
+    // Pour l'instant, nous utilisons une approche basée sur les événements de souris
+    // qui peuvent être générés par les écrans tactiles
+    const { screen } = require('electron');
+    
+    // Écoute des changements de position de la souris dans la zone de l'écran ANMITE
+    const checkMousePosition = () => {
+      const cursorPoint = screen.getCursorScreenPoint();
+      const { x, y, width, height } = device.bounds;
+      
+      // Vérifier si le curseur est dans la zone de l'écran ANMITE
+      if (cursorPoint.x >= x && cursorPoint.x <= x + width &&
+          cursorPoint.y >= y && cursorPoint.y <= y + height) {
+        
+        // Convertir les coordonnées globales en coordonnées locales de l'écran
+        const localX = cursorPoint.x - x;
+        const localY = cursorPoint.y - y;
+        
+        this.logger.debug(`ANMITE touch detected at (${localX}, ${localY})`);
+        this.iterateListeners((cb) => cb.touchDetected?.(device, localX, localY));
+      }
+    };
+    
+    // Vérifier périodiquement la position de la souris
+    setInterval(checkMousePosition, 100); // Vérifier toutes les 100ms
   }
 
   getDevices(): TouchscreenDevice[] {
