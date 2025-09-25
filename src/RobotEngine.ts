@@ -13,19 +13,18 @@ export interface AssignmentListener {
 }
 
 export class Assignment extends BaseObserver<AssignmentListener> {
-  position_x: number;
-  position_y: number;
+  position_x: number | null = null;
+  position_y: number | null = null;
   activated: boolean;
   moved: boolean;
   listener: () => any;
+  private currentListener: Partial<AssignmentListener> | null = null;
 
   constructor(
     protected device: PointerDevice,
     protected display: Display
   ) {
     super();
-    this.position_x = null;
-    this.position_y = null;
     this.activated = false;
     this.moved = false;
     this.listener = device.registerListener({
@@ -35,6 +34,14 @@ export class Assignment extends BaseObserver<AssignmentListener> {
         }
       }
     });
+  }
+
+  protected getListener(): Partial<AssignmentListener> | null {
+    return this.currentListener;
+  }
+
+  protected setListener(listener: Partial<AssignmentListener>): void {
+    this.currentListener = listener;
   }
 
   async init() {
@@ -73,9 +80,9 @@ export class Assignment extends BaseObserver<AssignmentListener> {
     }
 
     // previous device cursor was on this display, just use it
-    if (prev && this.contains(prev.position_x, prev.position_y)) {
-      pos_x = prev.position_x;
-      pos_y = prev.position_y;
+    if (prev && this.contains(prev.position_x || 0, prev.position_y || 0)) {
+      pos_x = prev.position_x || 0;
+      pos_y = prev.position_y || 0;
     }
 
     // this device cursor was on a different screen, use center

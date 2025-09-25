@@ -5,7 +5,7 @@ import { Logger } from 'winston';
 export interface Config {
   devices: {
     [key: string]: {
-      display: string;
+      display: string | null;
     };
   };
   startupDelay: number;
@@ -26,11 +26,20 @@ export class ConfigEngine extends BaseObserver<ConfigEngineListener> {
 
   config: Config;
   protected logger: Logger;
+  private currentListener: Partial<ConfigEngineListener> | null = null;
 
   constructor(protected options: ConfigEngineOptions) {
     super();
     this.logger = options.logger.child({ namespace: 'CONFIG' });
     this.config = { devices: {}, startupDelay: 0, logFile: false };
+  }
+
+  protected getListener(): Partial<ConfigEngineListener> | null {
+    return this.currentListener;
+  }
+
+  protected setListener(listener: Partial<ConfigEngineListener>): void {
+    this.currentListener = listener;
   }
 
   init() {

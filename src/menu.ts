@@ -2,6 +2,7 @@ import { Menu, MenuItem, Tray } from 'electron';
 import { DisplayEngine } from './DisplayEngine';
 import { PointerEngine } from './PointerEngine';
 import { ConfigEngine } from './ConfigEngine';
+import { TouchscreenEngine } from './TouchscreenEngine';
 import AutoLaunch from 'auto-launch';
 
 export interface BuildMenuOptions {
@@ -9,6 +10,7 @@ export interface BuildMenuOptions {
   pointerEngine: PointerEngine;
   displayEngine: DisplayEngine;
   configEngine: ConfigEngine;
+  touchscreenEngine: TouchscreenEngine;
   rebuildMenu: () => any;
   quit: () => any;
   tray: Tray;
@@ -33,6 +35,11 @@ export const buildMenu = async (options: BuildMenuOptions) => {
 
   // assignments
   buildAssignmentMenus(options).forEach((m) => {
+    menu.append(m);
+  });
+
+  // touchscreen assignments
+  buildTouchscreenMenus(options).forEach((m) => {
     menu.append(m);
   });
 
@@ -82,17 +89,19 @@ export const buildAssignmentMenus = (options: BuildMenuOptions) => {
   const { pointerEngine, displayEngine, configEngine, tray } = options;
   return pointerEngine.getDevices().map((device) => {
     const submenu = new Menu();
+    const deviceProduct = device.product || 'Unknown Device';
+    
     displayEngine.displays.forEach((display) => {
       submenu.append(
         new MenuItem({
           label: display.label,
           type: 'radio',
-          checked: configEngine.config.devices?.[device.product]?.display === display.label,
+          checked: configEngine.config.devices?.[deviceProduct]?.display === display.label,
           click: () => {
             configEngine.update({
               devices: {
                 ...configEngine.config.devices,
-                [device.product]: { display: display.label }
+                [deviceProduct]: { display: display.label }
               }
             });
           }
@@ -104,19 +113,84 @@ export const buildAssignmentMenus = (options: BuildMenuOptions) => {
       new MenuItem({
         type: 'radio',
         label: 'None (uncontrolled)',
-        checked: configEngine.config.devices?.[device.product]?.display == null,
+        checked: configEngine.config.devices?.[deviceProduct]?.display == null,
         click: () => {
           configEngine.update({
             devices: {
               ...configEngine.config.devices,
-              [device.product]: { display: null }
+              [deviceProduct]: { display: null }
             }
           });
         }
       })
     );
 
-    return new MenuItem({ label: device.product, submenu: submenu });
+    return new MenuItem({ label: deviceProduct, submenu: submenu });
+  });
+};
+
+export const buildTouchscreenMenus = (options: BuildMenuOptions) => {
+  const { touchscreenEngine, configEngine } = options;
+  const touchscreenDevices = touchscreenEngine.getDevices();
+  
+  if (touchscreenDevices.length === 0) {
+    return [];
+  }
+
+  return touchscreenDevices.map((device) => {
+    const submenu = new Menu();
+    
+    // Option pour activer/désactiver l'écran tactile
+    submenu.append(
+      new MenuItem({
+        label: 'Active',
+        type: 'checkbox',
+        checked: device.isActive,
+        click: () => {
+          touchscreenEngine.setDeviceActive(device.id, !device.isActive);
+          options.rebuildMenu();
+        }
+      })
+    );
+    
+    submenu.append(new MenuItem({ type: 'separator' }));
+    
+    // Information sur l'écran tactile
+    submenu.append(
+      new MenuItem({
+        label: `Vendor: ${device.vendor}`,
+        enabled: false
+      })
+    );
+    
+    submenu.append(
+      new MenuItem({
+        label: `Product: ${device.product}`,
+        enabled: false
+      })
+    );
+    
+    submenu.append(
+      new MenuItem({
+        label: `Resolution: ${device.bounds.width}x${device.bounds.height}`,
+        enabled: false
+      })
+    );
+    
+    if (device.isAnmite) {
+      submenu.append(new MenuItem({ type: 'separator' }));
+      submenu.append(
+        new MenuItem({
+          label: 'ANMITE Touchscreen Detected',
+          enabled: false
+        })
+      );
+    }
+
+    return new MenuItem({ 
+      label: `${device.name}${device.isAnmite ? ' (ANMITE)' : ''}`, 
+      submenu: submenu 
+    });
   });
 };
 

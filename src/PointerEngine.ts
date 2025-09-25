@@ -15,23 +15,35 @@ export interface PointerDeviceOptions {
 }
 
 export class PointerDevice extends BaseObserver<PointerDeviceListener> {
-  resource: HID;
+  resource: HID | null = null;
   logger: Logger;
-  private dispose: () => any;
+  private dispose: (() => any) | null = null;
+  private currentListener: Partial<PointerDeviceListener> | null = null;
 
   constructor(protected options: PointerDeviceOptions) {
     super();
     this.logger = options.logger.child({ namespace: options.device.product });
   }
 
+  protected getListener(): Partial<PointerDeviceListener> | null {
+    return this.currentListener;
+  }
+
+  protected setListener(listener: Partial<PointerDeviceListener>): void {
+    this.currentListener = listener;
+  }
+
   async connect() {
     this.logger.info(`Connecting`);
+    if (!this.device.path) {
+      throw new Error('Device path is undefined');
+    }
     this.resource = new HID(this.device.path);
 
     const data_cb = () => {
       this.iterateListeners((cb) => cb.moved?.());
     };
-    const error_cb = (err) => {
+    const error_cb = (err: any) => {
       this.logger.error(err);
       // do nothing for now
     };
@@ -88,11 +100,20 @@ export interface PointerEngineOptions {
 export class PointerEngine extends BaseObserver<PointerEngineListener> {
   _devices: Set<PointerDevice>;
   logger: Logger;
+  private currentListener: Partial<PointerEngineListener> | null = null;
 
   constructor(protected options: PointerEngineOptions) {
     super();
     this._devices = new Set();
     this.logger = options.logger.child({ namespace: 'POINTERS' });
+  }
+
+  protected getListener(): Partial<PointerEngineListener> | null {
+    return this.currentListener;
+  }
+
+  protected setListener(listener: Partial<PointerEngineListener>): void {
+    this.currentListener = listener;
   }
 
   async dispose() {
