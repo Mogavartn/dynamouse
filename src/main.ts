@@ -42,7 +42,13 @@ app.on('ready', async () => {
   buildLoadingMenu({ tray });
 
   // need to get some permissions before we can continue
-  await waitForAllPermissions();
+  try {
+    await waitForAllPermissions();
+  } catch (error) {
+    console.error('Failed to get permissions:', error);
+    // Continue anyway - user can manually grant permissions later
+    console.log('Continuing without permissions - user may need to grant them manually');
+  }
 
   // can hide the dock at this point as permissions checks might need to icon so users can switch to the dialog
   app.dock.hide();
