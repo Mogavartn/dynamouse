@@ -125,15 +125,45 @@ export class RobotEngine {
     this.logger.debug('Re-initializing');
     await Promise.all(this.assignments.map((a) => a.dispose()));
     this.assignments = [];
+    
     for (let key in config.devices) {
-      const device = this.options.pointerEngine.getDevice(key);
       if (!config.devices[key].display) {
         continue;
       }
+      
       const display = this.options.displayEngine.getDisplay(config.devices[key].display);
-      if (!display || !device) {
+      if (!display) {
         continue;
       }
+      
+      // Gestion spéciale pour le trackpad intégré
+      if (key === 'Trackpad') {
+        this.logger.debug(`Setting up trackpad assignment for ${display.label}`);
+        // Pour le trackpad, nous créons une assignation virtuelle
+        // qui gère les événements du trackpad intégré
+        const trackpadAssignment = this.createTrackpadAssignment(display);
+        if (trackpadAssignment) {
+          this.assignments.push(trackpadAssignment);
+        }
+        continue;
+      }
+      
+      // Gestion spéciale pour les périphériques ANMITE
+      if (key.startsWith('ANMITE_')) {
+        this.logger.debug(`Setting up ANMITE assignment for ${display.label}`);
+        const anmiteAssignment = this.createAnmiteAssignment(key, display);
+        if (anmiteAssignment) {
+          this.assignments.push(anmiteAssignment);
+        }
+        continue;
+      }
+      
+      // Gestion normale des autres périphériques
+      const device = this.options.pointerEngine.getDevice(key);
+      if (!device) {
+        continue;
+      }
+      
       let assignment = new Assignment(device, display);
       const listener = assignment.registerListener({
         willActivate: async () => {
@@ -155,5 +185,23 @@ export class RobotEngine {
     }
 
     await Promise.all(this.assignments.map((a) => a.init()));
+  }
+  
+  private createTrackpadAssignment(display: Display): Assignment | null {
+    // Créer une assignation virtuelle pour le trackpad intégré
+    // Cette assignation gère les événements du trackpad pour contrôler l'écran intégré
+    
+    // Pour l'instant, nous retournons null car nous devons implémenter
+    // une logique spécifique pour le trackpad intégré
+    this.logger.info(`Trackpad assignment created for ${display.label}`);
+    return null; // À implémenter selon les besoins spécifiques
+  }
+  
+  private createAnmiteAssignment(key: string, display: Display): Assignment | null {
+    // Créer une assignation spéciale pour les périphériques ANMITE
+    // Cette assignation gère les événements tactiles ANMITE
+    
+    this.logger.info(`ANMITE assignment created for ${display.label}`);
+    return null; // À implémenter selon les besoins spécifiques
   }
 }

@@ -87,7 +87,62 @@ export const buildDebugMenu = (options: BuildMenuOptions) => {
 
 export const buildAssignmentMenus = (options: BuildMenuOptions) => {
   const { pointerEngine, displayEngine, configEngine, tray } = options;
-  return pointerEngine.getDevices().map((device) => {
+  const devices = pointerEngine.getDevices();
+  
+  // Ajouter une option spéciale pour le trackpad intégré
+  const trackpadMenuItem = new MenuItem({
+    label: 'Trackpad (Built-in)',
+    submenu: (() => {
+      const submenu = new Menu();
+      
+      // Trouver l'écran intégré (généralement celui avec bounds.x = 0 et bounds.y = 0)
+      const builtInDisplay = displayEngine.displays.find(display => 
+        display.bounds.x === 0 && display.bounds.y === 0
+      );
+      
+      if (builtInDisplay) {
+        submenu.append(
+          new MenuItem({
+            label: `Control ${builtInDisplay.label}`,
+            type: 'checkbox',
+            checked: configEngine.config.devices?.['Trackpad']?.display === builtInDisplay.label,
+            click: () => {
+              const currentConfig = configEngine.config.devices?.['Trackpad'];
+              const newDisplay = currentConfig?.display === builtInDisplay.label ? null : builtInDisplay.label;
+              
+              configEngine.update({
+                devices: {
+                  ...configEngine.config.devices,
+                  'Trackpad': { display: newDisplay }
+                }
+              });
+            }
+          })
+        );
+      }
+      
+      submenu.append(new MenuItem({ type: 'separator' }));
+      submenu.append(
+        new MenuItem({
+          label: 'None (uncontrolled)',
+          type: 'checkbox',
+          checked: configEngine.config.devices?.['Trackpad']?.display == null,
+          click: () => {
+            configEngine.update({
+              devices: {
+                ...configEngine.config.devices,
+                'Trackpad': { display: null }
+              }
+            });
+          }
+        })
+      );
+      
+      return submenu;
+    })()
+  });
+  
+  const deviceMenus = devices.map((device) => {
     const submenu = new Menu();
     const deviceProduct = device.product || 'Unknown Device';
     
@@ -127,10 +182,13 @@ export const buildAssignmentMenus = (options: BuildMenuOptions) => {
 
     return new MenuItem({ label: deviceProduct, submenu: submenu });
   });
+  
+  // Retourner le menu trackpad en premier, puis les autres périphériques
+  return [trackpadMenuItem, ...deviceMenus];
 };
 
 export const buildTouchscreenMenus = (options: BuildMenuOptions) => {
-  const { touchscreenEngine, configEngine } = options;
+  const { touchscreenEngine, configEngine, pointerEngine, displayEngine } = options;
   const touchscreenDevices = touchscreenEngine.getDevices();
   
   if (touchscreenDevices.length === 0) {
@@ -154,6 +212,31 @@ export const buildTouchscreenMenus = (options: BuildMenuOptions) => {
     );
     
     submenu.append(new MenuItem({ type: 'separator' }));
+    
+    // Options de contrôle spécifiques pour ANMITE
+    if (device.isAnmite) {
+      submenu.append(
+        new MenuItem({
+          label: 'Control with Touchscreen',
+          type: 'checkbox',
+          checked: configEngine.config.devices?.[`ANMITE_${device.id}`]?.display === device.name,
+          click: () => {
+            const currentConfig = configEngine.config.devices?.[`ANMITE_${device.id}`];
+            const newDisplay = currentConfig?.display === device.name ? null : device.name;
+            
+            configEngine.update({
+              devices: {
+                ...configEngine.config.devices,
+                [`ANMITE_${device.id}`]: { display: newDisplay }
+              }
+            });
+            options.rebuildMenu();
+          }
+        })
+      );
+      
+      submenu.append(new MenuItem({ type: 'separator' }));
+    }
     
     // Information sur l'écran tactile
     submenu.append(
